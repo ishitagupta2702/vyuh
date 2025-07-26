@@ -1,0 +1,67 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+    branches:
+      - master
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+          cache-dependency-path: apps/frontend/pnpm-lock.yaml
+      
+      - name: Install dependencies
+        run: pnpm install
+        working-directory: apps/frontend
+      
+      - name: Build
+        run: pnpm build
+        working-directory: apps/frontend
+      
+      - name: Test
+        run: pnpm test
+        working-directory: apps/frontend
+      
+      - name: Lint
+        run: pnpm lint
+        working-directory: apps/frontend
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: pnpm install
+        working-directory: apps/frontend
+      
+      - name: Deploy to Production
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          cd apps/frontend
+          npm run build
+          netlify deploy --prod

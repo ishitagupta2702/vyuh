@@ -1,5 +1,17 @@
 FROM docker.ci.artifacts.walmart.com/hub-docker-release-remote/library/python:3.12-slim AS builder
 
+# Install system build tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    python3-dev \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip and install build tools
+RUN python -m pip install --upgrade pip setuptools wheel
+
+# Copy uv tools
 COPY --from=docker.ci.artifacts.walmart.com/ghcr-docker-release-remote/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
@@ -10,7 +22,11 @@ ENV UV_CACHE_DIR=/app/.cache/uv
 
 COPY . /app/
 
-RUN uv lock && uv sync --frozen --no-dev --no-editable
+# Install dependencies with error handling
+RUN echo "Installing dependencies..." && \
+    uv lock && \
+    uv sync --frozen --no-dev --no-editable || \
+    (echo "Dependency installation failed" && exit 1)
 
 # Remove unnecessary files from the virtual environment before copying
 RUN find /app/.venv -name '__pycache__' -type d -exec rm -rf {} + && \
@@ -19,6 +35,11 @@ RUN find /app/.venv -name '__pycache__' -type d -exec rm -rf {} + && \
     echo "Cleaned up .venv"
 
 FROM docker.ci.artifacts.walmart.com/hub-docker-release-remote/library/python:3.12-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=docker.ci.artifacts.walmart.com/wce-docker/ca-roots:latest /usr/local/share/ca-certificates /usr/local/share/ca-certificates
 COPY --from=docker.ci.artifacts.walmart.com/wce-docker/ca-roots:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
@@ -44,5 +65,17 @@ USER 10000
 
 COPY --chown=app:addgroup --from=builder /app/.venv /app/.venv
 
-ENTRYPOINT ["/app/.venv/bin/identityCrew"]
-CMD ["--host", "0.0.0.0", "--port", "8080"]
+WORKDIR /app
+
+# Copy application code
+COPY --chown=app:addgroup --from=builder /app/.venv /app/.venv
+COPY --chown=app:addgroup apps/backend /app
+
+# Set environment variables
+ENV PYTHONPATH=/app
+
+# Expose ports
+EXPOSE 8000 8080
+
+# Run the FastAPI app with uvicorn
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

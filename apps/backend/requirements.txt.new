@@ -1,0 +1,14 @@
+fastapi==0.110.0
+uvicorn==0.27.1
+strawberry-graphql[fastapi]==0.196.0
+python-dotenv==1.0.0
+pydantic==2.5.3  # Using a more stable version
+python-multipart==0.0.6
+sqlalchemy==2.0.25
+alembic==1.13.1
+psycopg2-binary==2.9.9
+PyYAML==6.0.1
+
+# Add these dependencies to ensure compatibility
+pydantic-core>=2.14.0,<2.15.0  # Using compatible version range for Python 3.11
+
