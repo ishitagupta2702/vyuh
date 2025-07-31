@@ -4,7 +4,7 @@
 __version__ = "0.0.1"
 __author__ = "Ishita Gupta"
 
-# Import the main crew class for easy access
-from .crew import publishCrew
+# Import the main crew classes for easy access
+from .crew import publishCrew, DevelopmentCrew
 
-__all__ = ["publishCrew"]
+__all__ = ["publishCrew", "DevelopmentCrew"]
