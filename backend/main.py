@@ -14,8 +14,8 @@ sys.path.insert(0, str(src_path))
 # Load environment variables from root .env file
 load_dotenv(project_root / ".env")
 
-# Import the publishCrew class
-from vyuh.crew import publishCrew
+# Import the crew classes
+from vyuh.crew import publishCrew, DevelopmentCrew
 
 app = FastAPI(
     title="Vyuh API",
@@ -34,6 +34,9 @@ app.add_middleware(
 
 class AgentRequest(BaseModel):
     topic: str = "The future of content creation"
+
+class DevelopmentRequest(BaseModel):
+    input_idea: str = "A task management app for remote teams"
 
 class AgentResponse(BaseModel):
     result: str
@@ -105,6 +108,36 @@ async def run_agent(request: AgentRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Error running agent: {str(e)}"
+        )
+
+@app.post("/run-development", response_model=AgentResponse)
+async def run_development(request: DevelopmentRequest):
+    """
+    Run the DevelopmentCrew with the specified app idea
+    """
+    try:
+        # Check if OpenAI API key is available
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        if not openai_api_key:
+            raise HTTPException(
+                status_code=500,
+                detail="OpenAI API key not found in environment variables"
+            )
+        
+        # Instantiate and run the development crew
+        crew_instance = DevelopmentCrew()
+        result = crew_instance.crew().kickoff(inputs={"input_idea": request.input_idea})
+        
+        return AgentResponse(
+            result=str(result),
+            topic=request.input_idea,
+            status="success"
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error running development crew: {str(e)}"
         )
 
 @app.get("/health")

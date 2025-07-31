@@ -1,3 +1,237 @@
+idea_agent:
+  id: "idea_agent_001"
+  name: "Product Vision Analyst"
+  role: >
+    Product Vision Analyst
+  goal: >
+    Convert vague ideas into structured MVP features and user stories
+  backstory: >
+    You're a strategic product thinker who turns raw ideas into actionable plans.
+  
+  # CrewAI configuration
+  verbose: true
+  allow_delegation: false
+  max_iter: 3
+  max_rpm: 10
+  
+  # Metadata for future mapping and analytics
+  metadata:
+    category: "product_analysis"
+    expertise_level: "senior"
+    specializations: ["mvp_planning", "user_stories", "feature_definition"]
+    created_date: "2024-01-01"
+    version: "1.0"
+    tags: ["product", "planning", "analysis"]
+    
+  # Performance tracking
+  performance:
+    success_rate: 0.95
+    avg_response_time: 45
+    reliability_score: 0.9
+    
+  # Configuration
+  config:
+    model: "gpt-4"
+    temperature: 0.7
+    max_tokens: 3000
+    tools_enabled: true
+    memory_enabled: false
+
+architect_agent:
+  id: "architect_agent_001"
+  name: "Technical Architect"
+  role: >
+    Technical Architect
+  goal: >
+    Design the tech stack, folder structure, and system architecture
+  backstory: >
+    You design scalable and modern software systems based on functional requirements.
+  
+  # CrewAI configuration
+  verbose: true
+  allow_delegation: false
+  max_iter: 3
+  max_rpm: 10
+  
+  # Metadata for future mapping and analytics
+  metadata:
+    category: "architecture"
+    expertise_level: "senior"
+    specializations: ["system_design", "tech_stack", "architecture_patterns"]
+    created_date: "2024-01-01"
+    version: "1.0"
+    tags: ["architecture", "design", "technical"]
+    
+  # Performance tracking
+  performance:
+    success_rate: 0.92
+    avg_response_time: 60
+    reliability_score: 0.88
+    
+  # Configuration
+  config:
+    model: "gpt-4"
+    temperature: 0.6
+    max_tokens: 4000
+    tools_enabled: true
+    memory_enabled: false
+
+backend_agent:
+  id: "backend_agent_001"
+  name: "Backend Engineer"
+  role: >
+    Backend Engineer
+  goal: >
+    Generate backend code with well-defined APIs, DB models, and authentication
+  backstory: >
+    You're skilled in designing RESTful APIs using FastAPI with robust DB schemas.
+  
+  # CrewAI configuration
+  verbose: true
+  allow_delegation: false
+  max_iter: 4
+  max_rpm: 12
+  
+  # Metadata for future mapping and analytics
+  metadata:
+    category: "backend_development"
+    expertise_level: "senior"
+    specializations: ["fastapi", "sqlalchemy", "rest_apis", "authentication"]
+    created_date: "2024-01-01"
+    version: "1.0"
+    tags: ["backend", "api", "database"]
+    
+  # Performance tracking
+  performance:
+    success_rate: 0.94
+    avg_response_time: 90
+    reliability_score: 0.92
+    
+  # Configuration
+  config:
+    model: "gpt-4"
+    temperature: 0.5
+    max_tokens: 5000
+    tools_enabled: true
+    memory_enabled: false
+
+frontend_agent:
+  id: "frontend_agent_001"
+  name: "Frontend Engineer"
+  role: >
+    Frontend Engineer
+  goal: >
+    Generate clean, modular frontend code that adheres to UX guidelines and integrates with APIs
+  backstory: >
+    You specialize in modern UI development using React and Tailwind.
+  
+  # CrewAI configuration
+  verbose: true
+  allow_delegation: false
+  max_iter: 4
+  max_rpm: 12
+  
+  # Metadata for future mapping and analytics
+  metadata:
+    category: "frontend_development"
+    expertise_level: "senior"
+    specializations: ["react", "tailwind", "ui_ux", "api_integration"]
+    created_date: "2024-01-01"
+    version: "1.0"
+    tags: ["frontend", "react", "ui"]
+    
+  # Performance tracking
+  performance:
+    success_rate: 0.93
+    avg_response_time: 75
+    reliability_score: 0.89
+    
+  # Configuration
+  config:
+    model: "gpt-4"
+    temperature: 0.6
+    max_tokens: 4500
+    tools_enabled: true
+    memory_enabled: false
+
+qa_agent:
+  id: "qa_agent_001"
+  name: "QA Reviewer"
+  role: >
+    QA Reviewer
+  goal: >
+    Check all code for errors, optimization issues, and suggest fixes
+  backstory: >
+    You're a thorough QA engineer with an eye for clean, efficient code.
+  
+  # CrewAI configuration
+  verbose: true
+  allow_delegation: false
+  max_iter: 3
+  max_rpm: 8
+  
+  # Metadata for future mapping and analytics
+  metadata:
+    category: "quality_assurance"
+    expertise_level: "senior"
+    specializations: ["code_review", "testing", "optimization", "bug_detection"]
+    created_date: "2024-01-01"
+    version: "1.0"
+    tags: ["qa", "testing", "review"]
+    
+  # Performance tracking
+  performance:
+    success_rate: 0.96
+    avg_response_time: 120
+    reliability_score: 0.94
+    
+  # Configuration
+  config:
+    model: "gpt-4"
+    temperature: 0.4
+    max_tokens: 4000
+    tools_enabled: true
+    memory_enabled: false
+
+packager_agent:
+  id: "packager_agent_001"
+  name: "Repo Packager"
+  role: >
+    Repo Packager
+  goal: >
+    Create a complete deployable repo with README, setup guide, and environment configs
+  backstory: >
+    You specialize in DevOps and know how to prepare clean, production-ready repos.
+  
+  # CrewAI configuration
+  verbose: true
+  allow_delegation: false
+  max_iter: 2
+  max_rpm: 6
+  
+  # Metadata for future mapping and analytics
+  metadata:
+    category: "devops"
+    expertise_level: "senior"
+    specializations: ["deployment", "documentation", "environment_setup", "docker"]
+    created_date: "2024-01-01"
+    version: "1.0"
+    tags: ["devops", "deployment", "documentation"]
+    
+  # Performance tracking
+  performance:
+    success_rate: 0.98
+    avg_response_time: 60
+    reliability_score: 0.96
+    
+  # Configuration
+  config:
+    model: "gpt-4"
+    temperature: 0.5
+    max_tokens: 3000
+    tools_enabled: true
+    memory_enabled: false
+# Legacy agents for backward compatibility
 researcher:
   role: >
     Senior Data Researcher

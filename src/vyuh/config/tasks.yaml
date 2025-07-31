@@ -1,3 +1,207 @@
+idea_task:
+  id: "task_idea_001"
+  name: "Idea Analysis and MVP Planning"
+  description: >
+    Interpret this idea: '{input_idea}' and convert it into structured MVP features, user stories, and functional requirements.
+  expected_output: >
+    A Markdown list of MVP features, user stories, and edge cases to be handled.
+  agent: idea_agent
+  
+  # Additional context
+  context: >
+    You are analyzing a product idea and need to break it down into actionable MVP features.
+    Focus on core functionality that delivers value to users.
+  
+  # Metadata for future mapping and analytics
+  metadata:
+    category: "product_planning"
+    priority: "high"
+    complexity: "medium"
+    estimated_duration: 300
+    dependencies: []
+    tags: ["mvp", "planning", "features"]
+    
+  # Performance tracking
+  performance:
+    success_criteria: ["completeness", "clarity", "actionability"]
+    quality_metrics: ["feature_coverage", "user_story_quality"]
+    
+  # Configuration
+  config:
+    max_iterations: 3
+    timeout: 600
+    retry_on_failure: true
+
+architecture_task:
+  id: "task_architecture_001"
+  name: "Technical Architecture Design"
+  description: >
+    Based on these features: the provided features, generate a tech stack recommendation, folder structure, and architecture diagram (in text).
+  expected_output: >
+    Tech stack, folder structure tree, and system flow in markdown.
+  agent: architect_agent
+  
+  # Additional context
+  context: >
+    You are designing the technical foundation for the application.
+    Consider scalability, maintainability, and modern best practices.
+  
+  # Metadata for future mapping and analytics
+  metadata:
+    category: "architecture"
+    priority: "high"
+    complexity: "high"
+    estimated_duration: 450
+    dependencies: ["idea_task"]
+    tags: ["architecture", "tech_stack", "design"]
+    
+  # Performance tracking
+  performance:
+    success_criteria: ["scalability", "modern_practices", "clarity"]
+    quality_metrics: ["tech_stack_appropriateness", "structure_clarity"]
+    
+  # Configuration
+  config:
+    max_iterations: 3
+    timeout: 900
+    retry_on_failure: true
+
+backend_task:
+  id: "task_backend_001"
+  name: "Backend API Development"
+  description: >
+    Using this architecture: the provided architecture, write backend code for the APIs and DB schema in FastAPI and SQLAlchemy.
+  expected_output: >
+    Source code for FastAPI backend including DB models, API routes, and auth module.
+  agent: backend_agent
+  
+  # Additional context
+  context: >
+    You are implementing the backend API following the architectural design.
+    Focus on clean, well-documented code with proper error handling.
+  
+  # Metadata for future mapping and analytics
+  metadata:
+    category: "backend_development"
+    priority: "high"
+    complexity: "high"
+    estimated_duration: 600
+    dependencies: ["architecture_task"]
+    tags: ["backend", "api", "fastapi", "database"]
+    
+  # Performance tracking
+  performance:
+    success_criteria: ["functionality", "code_quality", "documentation"]
+    quality_metrics: ["api_completeness", "code_standards"]
+    
+  # Configuration
+  config:
+    max_iterations: 4
+    timeout: 1200
+    retry_on_failure: true
+
+frontend_task:
+  id: "task_frontend_001"
+  name: "Frontend React Development"
+  description: >
+    Based on features: the provided features and APIs: the provided backend code, write React frontend with pages, API integrations, and basic styling.
+  expected_output: >
+    React codebase with component files, routes, and API calls.
+  agent: frontend_agent
+  
+  # Additional context
+  context: >
+    You are building the user interface that connects to the backend APIs.
+    Focus on modern React patterns and responsive design.
+  
+  # Metadata for future mapping and analytics
+  metadata:
+    category: "frontend_development"
+    priority: "high"
+    complexity: "medium"
+    estimated_duration: 480
+    dependencies: ["idea_task", "backend_task"]
+    tags: ["frontend", "react", "ui", "api_integration"]
+    
+  # Performance tracking
+  performance:
+    success_criteria: ["functionality", "ui_quality", "api_integration"]
+    quality_metrics: ["component_structure", "responsive_design"]
+    
+  # Configuration
+  config:
+    max_iterations: 4
+    timeout: 900
+    retry_on_failure: true
+
+qa_task:
+  id: "task_qa_001"
+  name: "Code Quality Review"
+  description: >
+    Review this codebase: the provided frontend code and the provided backend code, identify bugs, inefficiencies, and recommend or apply fixes.
+  expected_output: >
+    Code review comments or improved code.
+  agent: qa_agent
+  
+  # Additional context
+  context: >
+    You are performing a comprehensive code review to ensure quality and identify issues.
+    Focus on bugs, performance, security, and best practices.
+  
+  # Metadata for future mapping and analytics
+  metadata:
+    category: "quality_assurance"
+    priority: "medium"
+    complexity: "medium"
+    estimated_duration: 360
+    dependencies: ["frontend_task", "backend_task"]
+    tags: ["qa", "review", "testing", "optimization"]
+    
+  # Performance tracking
+  performance:
+    success_criteria: ["bug_detection", "optimization", "code_quality"]
+    quality_metrics: ["issue_coverage", "fix_effectiveness"]
+    
+  # Configuration
+  config:
+    max_iterations: 3
+    timeout: 600
+    retry_on_failure: false
+
+packaging_task:
+  id: "task_packaging_001"
+  name: "Repository Packaging"
+  description: >
+    Create final repo structure with README, .env.example, setup instructions, and optionally Dockerfile using the full reviewed codebase.
+  expected_output: >
+    Final deployable codebase in markdown + folder tree.
+  agent: packager_agent
+  
+  # Additional context
+  context: >
+    You are preparing the final deployable repository with all necessary documentation and configuration.
+    Ensure the repo is production-ready and easy to set up.
+  
+  # Metadata for future mapping and analytics
+  metadata:
+    category: "devops"
+    priority: "medium"
+    complexity: "low"
+    estimated_duration: 180
+    dependencies: ["qa_task"]
+    tags: ["devops", "deployment", "documentation"]
+    
+  # Performance tracking
+  performance:
+    success_criteria: ["completeness", "clarity", "deployability"]
+    quality_metrics: ["documentation_quality", "setup_ease"]
+    
+  # Configuration
+  config:
+    max_iterations: 2
+    timeout: 300
+    retry_on_failure: false
+# Legacy tasks for backward compatibility
 research_task:
   description: >
     Conduct a thorough research about {topic}
