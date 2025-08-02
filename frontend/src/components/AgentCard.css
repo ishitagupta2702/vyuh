@@ -95,3 +95,33 @@
 .add-to-crew-btn:active {
   transform: translateY(0);
 }
+
+/* Selected state styles */
+.agent-card.selected {
+  border-color: #28a745;
+  box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.2);
+  background: linear-gradient(135deg, #f8fff9 0%, #ffffff 100%);
+}
+
+.selected-badge {
+  background: #28a745;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  margin-left: auto;
+}
+
+.add-to-crew-btn.selected {
+  background: #dc3545;
+  color: white;
+}
+
+.add-to-crew-btn.selected:hover {
+  background: #c82333;
+}

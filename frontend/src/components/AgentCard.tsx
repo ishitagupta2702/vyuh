@@ -7,15 +7,17 @@ interface AgentCardProps {
   role: string;
   goal: string;
   onAdd: (id: string) => void;
+  isSelected?: boolean;
 }
 
-const AgentCard: React.FC<AgentCardProps> = ({ id, name, role, goal, onAdd }) => {
+const AgentCard: React.FC<AgentCardProps> = ({ id, name, role, goal, onAdd, isSelected = false }) => {
   return (
-    <div className="agent-card">
-      <div className="agent-card-header">
-        <h3 className="agent-name">{name}</h3>
-        <span className="agent-id">#{id}</span>
-      </div>
+    <div className={`agent-card ${isSelected ? 'selected' : ''}`}>
+              <div className="agent-card-header">
+          <h3 className="agent-name">{name}</h3>
+          <span className="agent-id">#{id}</span>
+          {isSelected && <span className="selected-badge">✓</span>}
+        </div>
       
       <div className="agent-card-content">
         <div className="agent-section">
@@ -31,10 +33,10 @@ const AgentCard: React.FC<AgentCardProps> = ({ id, name, role, goal, onAdd }) =>
       
       <div className="agent-card-footer">
         <button 
-          className="add-to-crew-btn"
+          className={`add-to-crew-btn ${isSelected ? 'selected' : ''}`}
           onClick={() => onAdd(id)}
         >
-          Add to Crew
+          {isSelected ? 'Remove from Crew' : 'Add to Crew'}
         </button>
       </div>
     </div>

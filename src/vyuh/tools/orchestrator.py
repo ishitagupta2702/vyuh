@@ -1,4 +1,6 @@
 import uuid
+import os
+from pathlib import Path
 from typing import List, Dict, Any
 from crewai import Agent, Task, Crew
 from langchain_community.chat_models import ChatLiteLLM
@@ -110,6 +112,25 @@ def launch_crew_from_linear_list(crew: List[str], topic: str, session_id: str = 
         result = crew_instance.kickoff(inputs={"topic": topic})
         print(f"[ORCHESTRATOR] Session {session_id}: Crew execution completed successfully")
         print(f"[ORCHESTRATOR] Session {session_id}: Result: {result}")
+        
+        # Step 8: Save result to file
+        print(f"[ORCHESTRATOR] Session {session_id}: Saving result to file...")
+        runs_dir = Path("runs")
+        runs_dir.mkdir(exist_ok=True)
+        
+        result_file = runs_dir / f"{session_id}.txt"
+        with open(result_file, "w", encoding="utf-8") as f:
+            f.write(f"Session ID: {session_id}\n")
+            f.write(f"Topic: {topic}\n")
+            f.write(f"Crew: {crew}\n")
+            f.write(f"Timestamp: {uuid.uuid4()}\n")
+            f.write("\n" + "="*50 + "\n")
+            f.write("FINAL OUTPUT:\n")
+            f.write("="*50 + "\n")
+            f.write(str(result))
+            f.write("\n")
+        
+        print(f"[ORCHESTRATOR] Session {session_id}: Result saved to {result_file}")
         return session_id
     except Exception as e:
         print(f"[ORCHESTRATOR] Session {session_id}: Crew execution failed - {str(e)}")

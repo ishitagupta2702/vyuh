@@ -104,3 +104,41 @@ async def launch_crew(request: CrewLaunchRequest):
             status_code=500,
             detail=f"Error launching crew: {str(e)}"
         )
+
+
+@router.get("/api/result/{session_id}")
+async def get_result(session_id: str):
+    """
+    Retrieve the result of a crew execution by session ID.
+    
+    Args:
+        session_id: The session ID to retrieve results for
+        
+    Returns:
+        The contents of the result file as text
+    """
+    try:
+        # Construct the path to the result file
+        runs_dir = Path("runs")
+        result_file = runs_dir / f"{session_id}.txt"
+        
+        # Check if the file exists
+        if not result_file.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Result not found for session ID: {session_id}"
+            )
+        
+        # Read and return the file contents
+        with open(result_file, "r", encoding="utf-8") as f:
+            content = f.read()
+        
+        return {"session_id": session_id, "content": content}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving result: {str(e)}"
+        )

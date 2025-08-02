@@ -1,7 +1,7 @@
 import React from 'react';
 import './CrewCart.css';
 
-const CrewCart = ({ crew, onRemove, onLaunch }) => {
+const CrewCart = ({ crew, onRemove, onLaunch, launchLoading = false, topic = "" }) => {
   const formatAgentName = (id) => {
     return id.charAt(0).toUpperCase() + id.slice(1);
   };
@@ -49,9 +49,9 @@ const CrewCart = ({ crew, onRemove, onLaunch }) => {
         <button 
           className="launch-crew-btn"
           onClick={onLaunch}
-          disabled={crew.length === 0}
+          disabled={crew.length === 0 || !topic.trim() || launchLoading}
         >
-          Launch Crew
+          {launchLoading ? 'Launching...' : 'Launch Crew'}
         </button>
       </div>
     </div>
