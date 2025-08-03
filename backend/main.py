@@ -17,6 +17,7 @@ load_dotenv(project_root / ".env")
 # Import routes
 from routes.agents import router as agents_router
 from routes.crew_builder import router as crew_builder_router
+from routes.stream import router as stream_router
 
 app = FastAPI(
     title="Vyuh API",
@@ -36,6 +37,7 @@ app.add_middleware(
 # Include routers
 app.include_router(agents_router)
 app.include_router(crew_builder_router)
+app.include_router(stream_router)
 
 
 

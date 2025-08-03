@@ -26,6 +26,34 @@
   opacity: 0.9;
 }
 
+.nav-tabs {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.nav-tabs button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.nav-tabs button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.nav-tabs button.active {
+  background: #61dafb;
+  color: #282c34;
+}
+
 main {
   flex: 1;
   display: flex;
