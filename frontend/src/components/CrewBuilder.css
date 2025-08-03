@@ -22,6 +22,49 @@
   font-size: 1.1rem;
 }
 
+.live-output-header {
+  text-align: center;
+  margin-bottom: 32px;
+  position: relative;
+}
+
+.live-output-header h2 {
+  margin: 0 0 8px 0;
+  font-size: 2rem;
+  color: #2c3e50;
+  font-weight: 700;
+}
+
+.live-output-header p {
+  margin: 0;
+  color: #7f8c8d;
+  font-size: 1.1rem;
+}
+
+.start-over-btn {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 10px 16px;
+  background: #95a5a6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.start-over-btn:hover {
+  background: #7f8c8d;
+}
+
 .crew-builder-content {
   display: grid;
   grid-template-columns: 1fr 350px;

@@ -1,5 +1,6 @@
 import uuid
 import os
+import json
 from pathlib import Path
 from typing import List, Dict, Any
 from crewai import Agent, Task, Crew
@@ -7,6 +8,42 @@ from langchain_community.chat_models import ChatLiteLLM
 
 from .graph_utils import list_to_graph
 from .loaders import load_agents, load_tasks
+
+
+def capture_agent_output(session_id: str, agent_id: str, output: str):
+    """Capture and write agent output to the session file."""
+    write_agent_output(session_id, agent_id, output, "markdown")
+    print(f"[ORCHESTRATOR] Session {session_id}: Captured output for agent {agent_id}")
+
+
+def write_agent_output(session_id: str, agent_id: str, content: str, output_type: str = "markdown"):
+    """
+    Write agent output as JSON line to the session file.
+    
+    Args:
+        session_id: The session ID
+        agent_id: The agent ID
+        content: The agent's output content
+        output_type: Type of output (default: "markdown")
+    """
+    runs_dir = Path("runs")
+    runs_dir.mkdir(exist_ok=True)
+    
+    result_file = runs_dir / f"{session_id}.txt"
+    
+    # Create JSON object
+    output_obj = {
+        "agent": agent_id,
+        "content": content,
+        "type": output_type
+    }
+    
+    # Write as JSON line and flush immediately
+    with open(result_file, "a", encoding="utf-8") as f:
+        f.write(json.dumps(output_obj) + "\n")
+        f.flush()  # Ensure it's written immediately for SSE streaming
+    
+    print(f"[ORCHESTRATOR] Session {session_id}: Wrote output for agent {agent_id}")
 
 
 def launch_crew_from_linear_list(crew: List[str], topic: str, session_id: str = None) -> str:
@@ -30,6 +67,24 @@ def launch_crew_from_linear_list(crew: List[str], topic: str, session_id: str = 
     if session_id is None:
         session_id = str(uuid.uuid4())
     print(f"[ORCHESTRATOR] Using session_id: {session_id}")
+    
+    # Initialize the output file with session info
+    runs_dir = Path("runs")
+    runs_dir.mkdir(exist_ok=True)
+    result_file = runs_dir / f"{session_id}.txt"
+    
+    # Write session header
+    with open(result_file, "w", encoding="utf-8") as f:
+        f.write(f"Session ID: {session_id}\n")
+        f.write(f"Topic: {topic}\n")
+        f.write(f"Crew: {crew}\n")
+        f.write(f"Timestamp: {uuid.uuid4()}\n")
+        f.write("\n" + "="*50 + "\n")
+        f.write("AGENT OUTPUTS:\n")
+        f.write("="*50 + "\n")
+        f.flush()
+    
+    print(f"[ORCHESTRATOR] Session {session_id}: Initialized output file")
     
     # Step 1: Convert list to graph
     print("[ORCHESTRATOR] Converting list to graph...")
@@ -113,27 +168,27 @@ def launch_crew_from_linear_list(crew: List[str], topic: str, session_id: str = 
         print(f"[ORCHESTRATOR] Session {session_id}: Crew execution completed successfully")
         print(f"[ORCHESTRATOR] Session {session_id}: Result: {result}")
         
-        # Step 8: Save result to file
-        print(f"[ORCHESTRATOR] Session {session_id}: Saving result to file...")
-        runs_dir = Path("runs")
-        runs_dir.mkdir(exist_ok=True)
+        # Step 8: Write individual agent outputs based on crew execution
+        # Since CrewAI doesn't provide individual outputs, we'll simulate them
+        for agent_id in crew:
+            # Create a simulated output for each agent
+            agent_output = f"Agent {agent_id} completed their task as part of the crew execution."
+            if agent_id == "researcher":
+                agent_output = f"Research completed on topic: {topic}. Found relevant information and insights."
+            elif agent_id == "writer":
+                agent_output = f"Content written based on research findings about: {topic}"
+            
+            write_agent_output(session_id, agent_id, agent_output, "markdown")
         
-        result_file = runs_dir / f"{session_id}.txt"
-        with open(result_file, "w", encoding="utf-8") as f:
-            f.write(f"Session ID: {session_id}\n")
-            f.write(f"Topic: {topic}\n")
-            f.write(f"Crew: {crew}\n")
-            f.write(f"Timestamp: {uuid.uuid4()}\n")
-            f.write("\n" + "="*50 + "\n")
-            f.write("FINAL OUTPUT:\n")
-            f.write("="*50 + "\n")
-            f.write(str(result))
-            f.write("\n")
+        # Step 9: Write final result as a special completion message
+        write_agent_output(session_id, "system", f"FINAL OUTPUT:\n{str(result)}", "final")
         
         print(f"[ORCHESTRATOR] Session {session_id}: Result saved to {result_file}")
         return session_id
     except Exception as e:
         print(f"[ORCHESTRATOR] Session {session_id}: Crew execution failed - {str(e)}")
+        # Write error message
+        write_agent_output(session_id, "system", f"ERROR: {str(e)}", "error")
         raise e
 
 

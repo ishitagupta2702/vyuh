@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AgentCard from './AgentCard';
+import LiveAgentOutput from './LiveAgentOutput';
 import './CrewBuilder.css';
 
 interface Agent {
@@ -25,6 +26,7 @@ const CrewBuilder: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [launchLoading, setLaunchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [launchedSessionId, setLaunchedSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAgents();
@@ -90,7 +92,8 @@ const CrewBuilder: React.FC = () => {
       }
 
       const data: LaunchResponse = await response.json();
-      alert(`Crew launched successfully!\nSession ID: ${data.session_id}`);
+      setLaunchedSessionId(data.session_id);
+      console.log(`Crew launched successfully! Session ID: ${data.session_id}`);
     } catch (err) {
       alert(`Error launching crew: ${err instanceof Error ? err.message : 'Failed to launch crew'}`);
     } finally {
@@ -100,6 +103,12 @@ const CrewBuilder: React.FC = () => {
 
   const formatAgentName = (id: string): string => {
     return id.charAt(0).toUpperCase() + id.slice(1);
+  };
+
+  const handleStartOver = () => {
+    setLaunchedSessionId(null);
+    setSelectedCrew([]);
+    setTopic("");
   };
 
   if (loading) {
@@ -123,6 +132,22 @@ const CrewBuilder: React.FC = () => {
             Retry
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // If a crew has been launched, show the live output
+  if (launchedSessionId) {
+    return (
+      <div className="crew-builder">
+        <div className="live-output-header">
+          <h2>Live Agent Output</h2>
+          <p>Watching your crew work in real-time...</p>
+          <button onClick={handleStartOver} className="start-over-btn">
+            ← Start Over
+          </button>
+        </div>
+        <LiveAgentOutput sessionId={launchedSessionId} />
       </div>
     );
   }
