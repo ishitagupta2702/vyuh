@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
 import logging
+import asyncio
 from crewai.tools import BaseTool
 
 logger = logging.getLogger(__name__)
@@ -40,8 +41,17 @@ class SandboxToolBase(BaseTool, ABC):
             # Validate input parameters
             self._validate_input(**kwargs)
             
-            # Execute the tool logic
-            result = self._execute_tool(**kwargs)
+            # Execute the tool logic (handle both sync and async)
+            if hasattr(self, '_execute_tool') and asyncio.iscoroutinefunction(self._execute_tool):
+                # Run async tool in event loop
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    result = loop.run_until_complete(self._execute_tool(**kwargs))
+                finally:
+                    loop.close()
+            else:
+                result = self._execute_tool(**kwargs)
             
             # Format and return result
             return self._format_result(result)
