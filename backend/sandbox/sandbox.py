@@ -7,6 +7,8 @@ from typing import Dict, Any, Optional, List
 from contextlib import contextmanager
 from daytona_sdk import AsyncDaytona, DaytonaConfig, CreateSandboxFromSnapshotParams, AsyncSandbox, SessionExecuteRequest, Resources, SandboxState
 import asyncio
+from dotenv import load_dotenv
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -31,13 +33,13 @@ class SandboxManager:
         self._validate_configuration()
         
         # Sandbox snapshot configuration
-        self.sandbox_snapshot = os.getenv("SANDBOX_SNAPSHOT_NAME", "ubuntu-22.04")
+        self.sandbox_snapshot = os.getenv("SANDBOX_SNAPSHOT_NAME", "daytonaio/sandbox:0.4.3")
     
     def _initialize_daytona_config(self) -> DaytonaConfig:
         """Initialize Daytona configuration from environment variables."""
         api_key = os.getenv("DAYTONA_API_KEY")
         api_url = os.getenv("DAYTONA_SERVER_URL", "https://cloud.daytona.com")
-        target = os.getenv("DAYTONA_TARGET", "default")
+        target = os.getenv("DAYTONA_TARGET", "us")  # Default to US region for better resource availability
         
         # Log configuration status
         if api_key:
@@ -115,9 +117,10 @@ class SandboxManager:
             
             # Initialize Daytona client
             self.daytona_client = AsyncDaytona(self.daytona_config)
+            self.logger.debug(f"Daytona client initialized: {self.daytona_client}")
             
             # Create new sandbox
-            self.sandbox = await self.create_sandbox()
+            self.sandbox = await self._create_sandbox()
             self.sandbox_id = self.sandbox.id
             
             self.logger.info("Daytona sandbox initialized successfully")
@@ -131,11 +134,12 @@ class SandboxManager:
         """Create a new sandbox with required services configured."""
         try:
             self.logger.debug("Creating new Daytona sandbox environment")
+            self.logger.debug(f"Daytona client: {self.daytona_client}")
             
-            # Create sandbox with snapshot
+            # Create sandbox with snapshot (Tier 1 compatible - no public previews)
             params = CreateSandboxFromSnapshotParams(
                 snapshot=self.sandbox_snapshot,
-                public=True,
+                public=False,  # Set to False for Tier 1 compatibility
                 labels={'project': 'vyuh-sandbox'},
                 env_vars={
                     "RESOLUTION": "1024x768x24",
@@ -237,10 +241,10 @@ class SandboxManager:
             "ANONYMIZED_TELEMETRY": "false"
         }
         
-        # Create sandbox with snapshot
+        # Create sandbox with snapshot (Tier 1 compatible - no public previews)
         params = CreateSandboxFromSnapshotParams(
             snapshot=self.sandbox_snapshot,
-            public=True,
+            public=False,  # Set to False for Tier 1 compatibility
             labels=labels,
             env_vars=env_vars,
             resources=Resources(
