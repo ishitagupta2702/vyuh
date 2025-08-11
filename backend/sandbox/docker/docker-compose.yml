@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - sandbox_network
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: sandbox/docker/Dockerfile
+    volumes:
+      - workspace:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - PYTHONPATH=/workspace
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - redis
+    networks:
+      - sandbox_network
+    working_dir: /workspace
+
+  sandbox:
+    build:
+      context: ../..
+      dockerfile: sandbox/docker/Dockerfile
+    volumes:
+      - workspace:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - PYTHONPATH=/workspace
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - redis
+    networks:
+      - sandbox_network
+    working_dir: /workspace
+
+volumes:
+  redis_data:
+  workspace:
+
+networks:
+  sandbox_network:
+    driver: bridge
