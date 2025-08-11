@@ -24,15 +24,76 @@ class SandboxManager:
         self.sandbox_id = None
         self.logger = logger
         
-        # Initialize Daytona configuration from environment variables
-        self.daytona_config = DaytonaConfig(
-            api_key=os.getenv("DAYTONA_API_KEY"),
-            api_url=os.getenv("DAYTONA_SERVER_URL", "https://cloud.daytona.com"),  # Use api_url instead of url
-            target=os.getenv("DAYTONA_TARGET", "default")
-        )
+        # Initialize and validate Daytona configuration
+        self.daytona_config = self._initialize_daytona_config()
+        
+        # Validate configuration
+        self._validate_configuration()
         
         # Sandbox snapshot configuration
-        self.sandbox_snapshot = os.getenv("DAYTONA_SANDBOX_SNAPSHOT", "ubuntu-22.04")
+        self.sandbox_snapshot = os.getenv("SANDBOX_SNAPSHOT_NAME", "ubuntu-22.04")
+    
+    def _initialize_daytona_config(self) -> DaytonaConfig:
+        """Initialize Daytona configuration from environment variables."""
+        api_key = os.getenv("DAYTONA_API_KEY")
+        api_url = os.getenv("DAYTONA_SERVER_URL", "https://cloud.daytona.com")
+        target = os.getenv("DAYTONA_TARGET", "default")
+        
+        # Log configuration status
+        if api_key:
+            self.logger.debug("Daytona API key configured successfully")
+        else:
+            self.logger.warning("No Daytona API key found in environment variables")
+        
+        if api_url:
+            self.logger.debug(f"Daytona API URL set to: {api_url}")
+        else:
+            self.logger.warning("No Daytona API URL found in environment variables")
+        
+        if target:
+            self.logger.debug(f"Daytona target set to: {target}")
+        else:
+            self.logger.warning("No Daytona target found in environment variables")
+        
+        return DaytonaConfig(
+            api_key=api_key,
+            api_url=api_url,
+            target=target
+        )
+    
+    def _validate_configuration(self) -> None:
+        """Validate required Daytona configuration."""
+        missing_configs = []
+        
+        if not self.daytona_config.api_key:
+            missing_configs.append("DAYTONA_API_KEY")
+        
+        if not self.daytona_config.api_url:
+            missing_configs.append("DAYTONA_SERVER_URL")
+        
+        if not self.daytona_config.target:
+            missing_configs.append("DAYTONA_TARGET")
+        
+        if missing_configs:
+            config_list = ", ".join(missing_configs)
+            self.logger.warning(f"Missing required Daytona configuration: {config_list}")
+            self.logger.warning("Sandbox operations may fail. Please check your environment variables.")
+        else:
+            self.logger.info("Daytona configuration validated successfully")
+    
+    def is_configured(self) -> bool:
+        """Check if Daytona is properly configured."""
+        return bool(self.daytona_config.api_key and self.daytona_config.api_url and self.daytona_config.target)
+    
+    def get_configuration_status(self) -> Dict[str, Any]:
+        """Get current configuration status."""
+        return {
+            "api_key_configured": bool(self.daytona_config.api_key),
+            "api_url_configured": bool(self.daytona_config.api_url),
+            "target_configured": bool(self.daytona_config.target),
+            "snapshot_configured": bool(self.sandbox_snapshot),
+            "fully_configured": self.is_configured()
+        }
         
     async def initialize_sandbox(self) -> bool:
         """
@@ -44,6 +105,11 @@ class SandboxManager:
         try:
             self.logger.info("Initializing Daytona sandbox environment...")
             
+            # Check if Daytona configuration is valid
+            if not self.daytona_config.api_key:
+                self.logger.error("Cannot initialize sandbox: DAYTONA_API_KEY is required")
+                return False
+            
             # Ensure workspace directory exists
             Path(self.workspace_dir).mkdir(parents=True, exist_ok=True)
             
@@ -51,7 +117,7 @@ class SandboxManager:
             self.daytona_client = AsyncDaytona(self.daytona_config)
             
             # Create new sandbox
-            self.sandbox = await self._create_sandbox()
+            self.sandbox = await self.create_sandbox()
             self.sandbox_id = self.sandbox.id
             
             self.logger.info("Daytona sandbox initialized successfully")
@@ -91,7 +157,7 @@ class SandboxManager:
             self.logger.debug(f"Sandbox created with ID: {sandbox.id}")
             
             # Start supervisord in a session for new sandbox
-            await self._start_supervisord_session(sandbox)
+            await self.start_supervisord_session(sandbox)
             
             self.logger.debug(f"Sandbox environment successfully initialized")
             return sandbox
@@ -100,7 +166,7 @@ class SandboxManager:
             self.logger.error(f"Failed to create sandbox: {str(e)}")
             raise
     
-    async def _start_supervisord_session(self, sandbox: AsyncSandbox):
+    async def start_supervisord_session(self, sandbox: AsyncSandbox):
         """Start supervisord in a session."""
         session_id = "supervisord-session"
         try:
@@ -116,6 +182,181 @@ class SandboxManager:
         except Exception as e:
             self.logger.error(f"Error starting supervisord session: {str(e)}")
             # Don't raise here as it's not critical for basic functionality
+    
+    async def get_or_start_sandbox(self, sandbox_id: str) -> AsyncSandbox:
+        """Retrieve a sandbox by ID, check its state, and start it if needed."""
+        
+        self.logger.info(f"Getting or starting sandbox with ID: {sandbox_id}")
+
+        try:
+            sandbox = await self.daytona_client.get(sandbox_id)
+            
+            # Check if sandbox needs to be started
+            if sandbox.state == SandboxState.ARCHIVED or sandbox.state == SandboxState.STOPPED:
+                self.logger.info(f"Sandbox is in {sandbox.state} state. Starting...")
+                try:
+                    await self.daytona_client.start(sandbox)
+                    # Wait a moment for the sandbox to initialize
+                    # sleep(5)
+                    # Refresh sandbox state after starting
+                    sandbox = await self.daytona_client.get(sandbox_id)
+                    
+                    # Start supervisord in a session when restarting
+                    await self.start_supervisord_session(sandbox)
+                except Exception as e:
+                    self.logger.error(f"Error starting sandbox: {e}")
+                    raise e
+            
+            self.logger.info(f"Sandbox {sandbox_id} is ready")
+            return sandbox
+            
+        except Exception as e:
+            self.logger.error(f"Error retrieving or starting sandbox: {str(e)}")
+            raise e
+    
+    async def create_sandbox(self, password: str = None, project_id: str = None) -> AsyncSandbox:
+        """Create a new sandbox with all required services configured and running."""
+        
+        self.logger.debug("Creating new Daytona sandbox environment")
+        self.logger.debug("Configuring sandbox with snapshot and environment variables")
+        
+        labels = None
+        if project_id:
+            self.logger.debug(f"Using project_id as label: {project_id}")
+            labels = {'id': project_id}
+        
+        # Set default password if none provided
+        if not password:
+            password = "vyuh123"
+        
+        env_vars = {
+            "RESOLUTION": "1024x768x24",
+            "RESOLUTION_WIDTH": "1024",
+            "RESOLUTION_HEIGHT": "768",
+            "VNC_PASSWORD": password,
+            "ANONYMIZED_TELEMETRY": "false"
+        }
+        
+        # Create sandbox with snapshot
+        params = CreateSandboxFromSnapshotParams(
+            snapshot=self.sandbox_snapshot,
+            public=True,
+            labels=labels,
+            env_vars=env_vars,
+            resources=Resources(
+                cpu=2,
+                memory=4,
+                disk=5,
+            ),
+            auto_stop_interval=15,
+            auto_archive_interval=2 * 60,
+        )
+        
+        # Create the sandbox
+        sandbox = await self.daytona_client.create(params)
+        self.logger.debug(f"Sandbox created with ID: {sandbox.id}")
+        
+        # Start supervisord in a session for new sandbox
+        await self.start_supervisord_session(sandbox)
+        
+        self.logger.debug(f"Sandbox environment successfully initialized")
+        return sandbox
+    
+    async def delete_sandbox(self, sandbox_id: str) -> bool:
+        """Delete a sandbox by its ID."""
+        self.logger.info(f"Deleting sandbox with ID: {sandbox_id}")
+
+        try:
+            # Get the sandbox
+            sandbox = await self.daytona_client.get(sandbox_id)
+            
+            # Delete the sandbox
+            await self.daytona_client.delete(sandbox)
+            
+            self.logger.info(f"Successfully deleted sandbox {sandbox_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error deleting sandbox {sandbox_id}: {str(e)}")
+            raise e
+    
+    async def get_sandbox_status(self, sandbox_id: str = None) -> Dict[str, Any]:
+        """Get the status of a sandbox."""
+        try:
+            if not sandbox_id:
+                sandbox_id = self.sandbox_id
+            
+            if not sandbox_id:
+                return {"error": "No sandbox ID provided"}
+            
+            sandbox = await self.daytona_client.get(sandbox_id)
+            return {
+                "sandbox_id": sandbox.id,
+                "state": str(sandbox.state),
+                "created_at": str(sandbox.created_at) if hasattr(sandbox, 'created_at') else None,
+                "status": "active" if sandbox.state == SandboxState.RUNNING else "inactive"
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting sandbox status: {str(e)}")
+            return {"error": str(e)}
+    
+    async def list_sandboxes(self) -> List[Dict[str, Any]]:
+        """List all available sandboxes."""
+        try:
+            sandboxes = await self.daytona_client.list()
+            return [
+                {
+                    "id": sandbox.id,
+                    "state": str(sandbox.state),
+                    "created_at": str(sandbox.created_at) if hasattr(sandbox, 'created_at') else None,
+                    "labels": getattr(sandbox, 'labels', {})
+                }
+                for sandbox in sandboxes
+            ]
+        except Exception as e:
+            self.logger.error(f"Error listing sandboxes: {str(e)}")
+            return []
+    
+    async def start_sandbox(self, sandbox_id: str) -> bool:
+        """Start a stopped sandbox."""
+        try:
+            sandbox = await self.daytona_client.get(sandbox_id)
+            await self.daytona_client.start(sandbox)
+            self.logger.info(f"Sandbox {sandbox_id} started successfully")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error starting sandbox {sandbox_id}: {str(e)}")
+            return False
+    
+    async def stop_sandbox(self, sandbox_id: str) -> bool:
+        """Stop a running sandbox."""
+        try:
+            sandbox = await self.daytona_client.get(sandbox_id)
+            await self.daytona_client.stop(sandbox)
+            self.logger.info(f"Sandbox {sandbox_id} stopped successfully")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error stopping sandbox {sandbox_id}: {str(e)}")
+            return False
+    
+    async def wait_for_sandbox_ready(self, sandbox_id: str, timeout: int = 60) -> bool:
+        """Wait for a sandbox to be ready (running state)."""
+        try:
+            import asyncio
+            start_time = asyncio.get_event_loop().time()
+            
+            while asyncio.get_event_loop().time() - start_time < timeout:
+                status = await self.get_sandbox_status(sandbox_id)
+                if "error" not in status and status.get("state") == "RUNNING":
+                    self.logger.info(f"Sandbox {sandbox_id} is ready")
+                    return True
+                
+                await asyncio.sleep(2)
+            
+            self.logger.warning(f"Timeout waiting for sandbox {sandbox_id} to be ready")
+            return False
+        except Exception as e:
+            self.logger.error(f"Error waiting for sandbox ready: {str(e)}")
+            return False
     
     async def execute_command(self, command: str, timeout: int = 30) -> Dict[str, Any]:
         """
@@ -190,9 +431,9 @@ class SandboxManager:
             self.logger.info("Cleaning up Daytona sandbox...")
             
             # Delete Daytona sandbox
-            if self.sandbox and self.daytona_client:
+            if self.sandbox_id and self.daytona_client:
                 try:
-                    await self.daytona_client.delete(self.sandbox)
+                    await self.delete_sandbox(self.sandbox_id)
                     self.logger.info("Daytona sandbox deleted successfully")
                 except Exception as e:
                     self.logger.warning(f"Failed to delete sandbox: {str(e)}")

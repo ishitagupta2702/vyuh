@@ -167,6 +167,61 @@ def execute_crew_workflow(crew_config: Dict[str, Any], task_description: str, jo
             
             agents.append(agent)
         
+        # If no tools specified, add sandbox tools automatically
+        if not any(agent.tools for agent in agents):
+            logger.info("No tools specified, adding Daytona sandbox tools automatically")
+            try:
+                # Use sandbox context manager for proper lifecycle management
+                async def add_sandbox_tools():
+                    async with SandboxContextManager() as sandbox_ctx:
+                        tools = sandbox_ctx.get_tools()
+                        
+                        # Add appropriate tools based on agent role
+                        for i, agent in enumerate(agents):
+                            if "researcher" in agent_config.get("role", "").lower():
+                                agent.tools = [tools["file_tool"], tools["command_tool"]]
+                            elif "writer" in agent_config.get("role", "").lower():
+                                agent.tools = [tools["file_tool"], tools["pdf_tool"]]
+                            else:
+                                agent.tools = [tools["file_tool"]]
+                        
+                        # Execute crew with sandbox tools
+                        crew = Crew(
+                            agents=agents,
+                            tasks=tasks,
+                            verbose=crew_config.get("verbose", True),
+                            memory=crew_config.get("memory", None)
+                        )
+                        
+                        return crew.kickoff()
+                
+                # Run async function
+                import asyncio
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    result = loop.run_until_complete(add_sandbox_tools())
+                finally:
+                    loop.close()
+                
+                # Update job status to completed
+                worker_manager.update_job_status(job_id, JobStatus.COMPLETED, result=result)
+                
+                logger.info(f"Sandbox-enabled crew workflow completed successfully for job {job_id}")
+                
+                return {
+                    "success": True,
+                    "result": result,
+                    "job_id": job_id,
+                    "completed_at": datetime.utcnow().isoformat(),
+                    "sandbox_enabled": True
+                }
+                
+            except Exception as e:
+                logger.error(f"Failed to execute sandbox-enabled crew workflow: {str(e)}")
+                # Fall back to regular execution
+                logger.info("Falling back to regular crew execution")
+        
         # Create tasks from configuration
         tasks = []
         for task_config in crew_config.get("tasks", []):
@@ -237,6 +292,7 @@ def execute_sandbox_task(task_type: str, task_config: Dict[str, Any], job_id: st
         # Import sandbox components
         from .sandbox import SandboxManager
         from .file_tool import FileTool
+        from .crewai_tools import SandboxContextManager
         from .shell_tool import ShellTool
         from .pdf_tool import PDFTool
         

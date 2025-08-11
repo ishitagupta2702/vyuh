@@ -74,28 +74,11 @@ def launch_crew_from_linear_list(crew: List[str], topic: str, session_id: str = 
         
         # Add sandbox tools based on agent type
         try:
-            from crewai_tools import create_file_tool, create_command_tool, create_pdf_tool
+            from crewai_tools import SandboxContextManager
             
-            # Create a sandbox manager for this agent
-            from sandbox import SandboxManager
-            sandbox_manager = SandboxManager()
-            
-            # Add tools based on agent role
-            if "researcher" in agent_id.lower():
-                crew_agents[agent_id].tools = [
-                    create_file_tool(sandbox_manager),
-                    create_command_tool(sandbox_manager)
-                ]
-            elif "writer" in agent_id.lower():
-                crew_agents[agent_id].tools = [
-                    create_file_tool(sandbox_manager),
-                    create_pdf_tool(sandbox_manager)
-                ]
-            else:
-                # Default tools for other agents
-                crew_agents[agent_id].tools = [create_file_tool(sandbox_manager)]
-                
-            print(f"[ORCHESTRATOR] Added sandbox tools to agent: {agent_id}")
+            # Note: Sandbox tools will be managed by the crew execution context
+            # Tools are initialized when the crew runs, not when agents are created
+            print(f"[ORCHESTRATOR] Sandbox tools will be initialized for agent: {agent_id}")
             
         except Exception as e:
             print(f"[ORCHESTRATOR] Warning: Could not add sandbox tools to {agent_id}: {e}")
@@ -158,6 +141,119 @@ def launch_crew_from_linear_list(crew: List[str], topic: str, session_id: str = 
     except Exception as e:
         print(f"[ORCHESTRATOR] Session {session_id}: Crew execution failed - {str(e)}")
         raise e
+
+
+def launch_crew_with_sandbox(crew: List[str], topic: str, session_id: str = None) -> dict:
+    """
+    Launch a CrewAI workflow with Daytona sandbox tools properly managed.
+    
+    Args:
+        crew: List of agent IDs in execution order
+        topic: The topic for the crew to work on
+        session_id: Optional session ID
+        
+    Returns:
+        Dictionary containing session_id, result, and sandbox status
+    """
+    print(f"[ORCHESTRATOR] Starting sandbox-enabled crew launch: crew={crew}, topic={topic}")
+    
+    # Generate session ID if not provided
+    if session_id is None:
+        session_id = str(uuid.uuid4())
+    print(f"[ORCHESTRATOR] Using session_id: {session_id}")
+    
+    try:
+        from crewai_tools import SandboxContextManager
+        
+        # Create sandbox context manager
+        async def run_crew_with_sandbox():
+            async with SandboxContextManager() as sandbox_ctx:
+                # Get tools
+                tools = sandbox_ctx.get_tools()
+                
+                # Load agents and tasks
+                agents_config = load_agents()
+                tasks_config = load_tasks()
+                
+                # Create agents with sandbox tools
+                crew_agents = {}
+                for agent_id in crew:
+                    agent_config = agents_config[agent_id]
+                    
+                    # Create agent
+                    agent = Agent(
+                        role=agent_config.get("role", "").strip(),
+                        goal=agent_config.get("goal", "").strip(),
+                        backstory=agent_config.get("backstory", "").strip(),
+                        llm=ChatLiteLLM(model="gpt-3.5-turbo"),
+                        verbose=True
+                    )
+                    
+                    # Add appropriate tools based on agent role
+                    if "researcher" in agent_id.lower():
+                        agent.tools = [tools["file_tool"], tools["command_tool"]]
+                    elif "writer" in agent_id.lower():
+                        agent.tools = [tools["file_tool"], tools["pdf_tool"]]
+                    else:
+                        agent.tools = [tools["file_tool"]]
+                    
+                    crew_agents[agent_id] = agent
+                    print(f"[ORCHESTRATOR] Created agent {agent_id} with sandbox tools")
+                
+                # Create tasks
+                crew_tasks = []
+                for agent_id in crew:
+                    task_config = tasks_config.get(agent_id, {})
+                    task = Task(
+                        description=task_config.get("description", f"Execute {agent_id} task"),
+                        expected_output=task_config.get("expected_output", f"Results from {agent_id}"),
+                        agent=crew_agents[agent_id],
+                        context=[]
+                    )
+                    crew_tasks.append(task)
+                
+                # Create and execute crew
+                crew_instance = Crew(
+                    agents=list(crew_agents.values()),
+                    tasks=crew_tasks,
+                    verbose=True
+                )
+                
+                result = crew_instance.kickoff(inputs={"topic": topic})
+                
+                return {
+                    "success": True,
+                    "result": str(result),
+                    "sandbox_status": sandbox_ctx.get_sandbox_status()
+                }
+        
+        # Run the async function
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(run_crew_with_sandbox())
+        finally:
+            loop.close()
+        
+        print(f"[ORCHESTRATOR] Session {session_id}: Sandbox crew execution completed")
+        
+        return {
+            "session_id": session_id,
+            "topic": topic,
+            "success": True,
+            **result
+        }
+        
+    except Exception as e:
+        print(f"[ORCHESTRATOR] Session {session_id}: Sandbox crew execution failed - {str(e)}")
+        return {
+            "session_id": session_id,
+            "topic": topic,
+            "success": False,
+            "error": str(e),
+            "sandbox_status": "failed"
+        }
 
 
 def launch_crew_from_linear_list_with_queue(crew: List[str], topic: str, session_id: str = None, queue_job: bool = False) -> dict:
