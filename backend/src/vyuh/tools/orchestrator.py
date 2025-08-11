@@ -1,9 +1,15 @@
 import uuid
 import os
+import sys
 from pathlib import Path
 from typing import List, Dict, Any
 from crewai import Agent, Task, Crew
 from langchain_community.chat_models import ChatLiteLLM
+
+# Add sandbox path to import sandbox tools
+project_root = Path(__file__).parent.parent.parent
+sandbox_path = project_root / "sandbox"
+sys.path.insert(0, str(sandbox_path))
 
 from .graph_utils import list_to_graph
 from .loaders import load_agents, load_tasks
@@ -65,6 +71,35 @@ def launch_crew_from_linear_list(crew: List[str], topic: str, session_id: str = 
             llm=ChatLiteLLM(model="gpt-3.5-turbo"),
             verbose=True
         )
+        
+        # Add sandbox tools based on agent type
+        try:
+            from crewai_tools import create_file_tool, create_command_tool, create_pdf_tool
+            
+            # Create a sandbox manager for this agent
+            from sandbox import SandboxManager
+            sandbox_manager = SandboxManager()
+            
+            # Add tools based on agent role
+            if "researcher" in agent_id.lower():
+                crew_agents[agent_id].tools = [
+                    create_file_tool(sandbox_manager),
+                    create_command_tool(sandbox_manager)
+                ]
+            elif "writer" in agent_id.lower():
+                crew_agents[agent_id].tools = [
+                    create_file_tool(sandbox_manager),
+                    create_pdf_tool(sandbox_manager)
+                ]
+            else:
+                # Default tools for other agents
+                crew_agents[agent_id].tools = [create_file_tool(sandbox_manager)]
+                
+            print(f"[ORCHESTRATOR] Added sandbox tools to agent: {agent_id}")
+            
+        except Exception as e:
+            print(f"[ORCHESTRATOR] Warning: Could not add sandbox tools to {agent_id}: {e}")
+        
         print(f"[ORCHESTRATOR] Created agent: {agent_id}")
         
         # Find corresponding task
@@ -123,6 +158,67 @@ def launch_crew_from_linear_list(crew: List[str], topic: str, session_id: str = 
     except Exception as e:
         print(f"[ORCHESTRATOR] Session {session_id}: Crew execution failed - {str(e)}")
         raise e
+
+
+def launch_crew_from_linear_list_with_queue(crew: List[str], topic: str, session_id: str = None, queue_job: bool = False) -> dict:
+    """
+    Launch a CrewAI workflow from a linear list of agent IDs with option to queue.
+    
+    Args:
+        crew: List of agent IDs in execution order
+        topic: The topic for the crew to work on
+        session_id: Optional session ID
+        queue_job: If True, queue the job instead of running synchronously
+        
+    Returns:
+        Dictionary containing session_id and result or job_id
+    """
+    if queue_job:
+        # Queue the job for background execution
+        try:
+            from worker import queue_crew_workflow
+            
+            # Create crew configuration
+            crew_config = {
+                "agents": [
+                    {
+                        "role": "researcher" if "researcher" in agent else "writer" if "writer" in agent else "agent",
+                        "goal": f"Process {topic}",
+                        "backstory": f"Specialized agent for {agent} operations",
+                        "verbose": True,
+                        "allow_delegation": False
+                    }
+                    for agent in crew
+                ],
+                "tasks": [
+                    {
+                        "description": f"Execute {agent} task for {topic}",
+                        "agent_index": i,
+                        "expected_output": f"Results from {agent}",
+                        "context": []
+                    }
+                    for i, agent in enumerate(crew)
+                ],
+                "verbose": True
+            }
+            
+            job_id = queue_crew_workflow(crew_config, topic)
+            
+            return {
+                "session_id": session_id,
+                "job_id": job_id,
+                "status": "queued",
+                "topic": topic,
+                "crew": crew
+            }
+            
+        except Exception as e:
+            print(f"[ORCHESTRATOR] Failed to queue job: {e}")
+            # Fall back to synchronous execution
+            pass
+    
+    # Fall back to synchronous execution
+    return launch_crew_from_linear_list(crew, topic, session_id)
 
 
 if __name__ == "__main__":

@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
 import logging
-from crewai import Tool
+from crewai.tools import BaseTool
 
 logger = logging.getLogger(__name__)
 
-class SandboxToolBase(Tool, ABC):
+class SandboxToolBase(BaseTool, ABC):
     """
     Base class for sandbox tools that integrate with CrewAI.
     Extends the CrewAI Tool class with sandbox-specific functionality.

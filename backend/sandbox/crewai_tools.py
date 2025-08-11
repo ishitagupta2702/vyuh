@@ -1,11 +1,11 @@
-from crewai import Tool
+from crewai.tools import BaseTool
 from typing import Dict, Any, Optional
-from .file_tool import FileTool
-from .shell_tool import ShellTool
-from .pdf_tool import PDFTool
-from .sandbox import SandboxManager
+from file_tool import FileTool
+from shell_tool import ShellTool
+from pdf_tool import PDFTool
+from sandbox import SandboxManager
 
-class FileCreationTool(Tool):
+class FileCreationTool(BaseTool):
     """
     CrewAI tool wrapper for file operations in the sandbox environment.
     """
@@ -69,7 +69,7 @@ class FileCreationTool(Tool):
         self.sandbox_manager = sandbox_manager
         self.file_tool = FileTool(sandbox_manager)
 
-class CommandExecutionTool(Tool):
+class CommandExecutionTool(BaseTool):
     """
     CrewAI tool wrapper for command execution in the sandbox environment.
     """
@@ -136,7 +136,7 @@ class CommandExecutionTool(Tool):
         self.sandbox_manager = sandbox_manager
         self.shell_tool = ShellTool(sandbox_manager)
 
-class PDFGenerationTool(Tool):
+class PDFGenerationTool(BaseTool):
     """
     CrewAI tool wrapper for PDF generation in the sandbox environment.
     """
@@ -224,7 +224,7 @@ class SandboxToolFactory:
         tool = PDFGenerationTool(self.sandbox_manager)
         return tool
     
-    def create_all_tools(self) -> Dict[str, Tool]:
+    def create_all_tools(self) -> Dict[str, BaseTool]:
         """Create all available sandbox tools."""
         return {
             "file_tool": self.create_file_tool(),
@@ -233,7 +233,7 @@ class SandboxToolFactory:
         }
 
 # Convenience functions for easy tool creation
-def create_sandbox_tools(sandbox_manager: SandboxManager) -> Dict[str, Tool]:
+def create_sandbox_tools(sandbox_manager: SandboxManager) -> Dict[str, BaseTool]:
     """
     Create all sandbox tools with the given sandbox manager.
     

@@ -9,6 +9,9 @@ from dramatiq.brokers.redis import RedisBroker
 from dramatiq.results import Results
 from dramatiq.results.backends import RedisBackend
 
+# Import sandbox components
+from sandbox import SandboxManager
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -287,7 +290,7 @@ def execute_sandbox_task(task_type: str, task_config: Dict[str, Any], job_id: st
             "failed_at": datetime.utcnow().isoformat()
         }
 
-def _create_tool_from_config(tool_config: Dict[str, Any]) -> Optional[BaseTool]:
+def _create_tool_from_config(tool_config: Dict[str, Any]) -> Optional[Any]:
     """Create a tool instance from configuration."""
     try:
         tool_type = tool_config.get("type")

@@ -3,7 +3,7 @@ import tempfile
 import os
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from .tool_base import SandboxToolBase
+from tool_base import SandboxToolBase
 
 class ShellTool(SandboxToolBase):
     """

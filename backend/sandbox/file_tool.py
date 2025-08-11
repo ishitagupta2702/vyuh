@@ -2,7 +2,7 @@ import os
 import shutil
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from .tool_base import SandboxToolBase
+from tool_base import SandboxToolBase
 
 class FileTool(SandboxToolBase):
     """
