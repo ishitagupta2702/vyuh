@@ -9,3 +9,4 @@ click
 langchain>=0.1.0
 langchain-community
 opentelemetry-instrumentation-starlette
+daytona-sdk

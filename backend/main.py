@@ -53,6 +53,61 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "vyuh-api"}
 
+@app.get("/config/daytona")
+async def daytona_config_status():
+    """Check Daytona configuration status"""
+    try:
+        from sandbox.sandbox import SandboxManager
+        
+        # Create a temporary sandbox manager to check configuration
+        sandbox_manager = SandboxManager()
+        config_status = sandbox_manager.get_configuration_status()
+        
+        return {
+            "status": "configured" if config_status["fully_configured"] else "incomplete",
+            "configuration": config_status,
+            "message": "Daytona configuration check completed"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "configuration": {},
+            "message": f"Failed to check Daytona configuration: {str(e)}"
+        }
+
+@app.get("/sandbox/list")
+async def list_sandboxes():
+    """List all available Daytona sandboxes"""
+    try:
+        from sandbox.sandbox import SandboxManager
+        
+        sandbox_manager = SandboxManager()
+        if not sandbox_manager.is_configured():
+            return {"error": "Daytona not configured"}
+        
+        sandboxes = await sandbox_manager.list_sandboxes()
+        return {
+            "sandboxes": sandboxes,
+            "count": len(sandboxes)
+        }
+    except Exception as e:
+        return {"error": f"Failed to list sandboxes: {str(e)}"}
+
+@app.get("/sandbox/{sandbox_id}/status")
+async def get_sandbox_status(sandbox_id: str):
+    """Get status of a specific sandbox"""
+    try:
+        from sandbox.sandbox import SandboxManager
+        
+        sandbox_manager = SandboxManager()
+        if not sandbox_manager.is_configured():
+            return {"error": "Daytona not configured"}
+        
+        status = await sandbox_manager.get_sandbox_status(sandbox_id)
+        return status
+    except Exception as e:
+        return {"error": f"Failed to get sandbox status: {str(e)}"}
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))

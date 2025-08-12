@@ -12,8 +12,14 @@ project_root = Path(__file__).parent.parent
 src_path = project_root / "src"
 sys.path.insert(0, str(src_path))
 
+# Add sandbox path to import worker
+sandbox_path = project_root / "sandbox"
+sys.path.insert(0, str(sandbox_path))
+
 # Import the orchestrator
 from vyuh.tools.orchestrator import launch_crew_from_linear_list
+# Import worker for job queuing
+from worker import queue_crew_workflow, get_job_status
 
 router = APIRouter()
 
@@ -23,10 +29,11 @@ class CrewLaunchRequest(BaseModel):
 
 class CrewLaunchResponse(BaseModel):
     session_id: str
-    status: str = "completed"
-    data: Optional[str] = None  # The actual crew execution result
-    topic: Optional[str] = None  # The topic that was processed
-    crew: Optional[List[str]] = None  # The crew that was used
+    job_id: str
+    status: str = "queued"
+    message: str = "Job queued successfully"
+    topic: Optional[str] = None
+    crew: Optional[List[str]] = None
 
 @router.post("/api/launch", response_model=CrewLaunchResponse)
 async def launch_crew(request: CrewLaunchRequest):
@@ -71,27 +78,48 @@ async def launch_crew(request: CrewLaunchRequest):
             )
         print(f"[CREW_BUILDER] Crew list validated: {request.crew}")
         
-        print(f"[CREW_BUILDER] Starting crew execution for session_id: {session_id}")
+        print(f"[CREW_BUILDER] Starting crew job queuing for session_id: {session_id}")
         
-        # Run the crew execution directly (blocking)
+        # Create crew configuration for background execution
+        crew_config = {
+            "agents": [
+                {
+                    "role": "researcher" if "researcher" in agent else "writer" if "writer" in agent else "agent",
+                    "goal": f"Process {request.topic}",
+                    "backstory": f"Specialized agent for {agent} operations",
+                    "verbose": True,
+                    "allow_delegation": False
+                }
+                for agent in request.crew
+            ],
+            "tasks": [
+                {
+                    "description": f"Execute {agent} task for {request.topic}",
+                    "agent_index": i,
+                    "expected_output": f"Results from {agent}",
+                    "context": []
+                }
+                for i, agent in enumerate(request.crew)
+            ],
+            "verbose": True
+        }
+        
+        # Queue the job instead of running synchronously
         try:
-            crew_result = launch_crew_from_linear_list(
-                request.crew, 
-                request.topic, 
-                session_id
-            )
-            print(f"[CREW_BUILDER] Crew execution completed for session_id: {session_id}")
+            job_id = queue_crew_workflow(crew_config, request.topic)
+            print(f"[CREW_BUILDER] Job queued with ID: {job_id}")
             
             return CrewLaunchResponse(
-                session_id=crew_result["session_id"],
-                status="completed",
-                data=crew_result["result"],  # The actual crew execution result
-                topic=crew_result["topic"],
-                crew=crew_result["crew"]
+                session_id=session_id,
+                job_id=job_id,
+                status="queued",
+                message="Crew workflow queued for background execution",
+                topic=request.topic,
+                crew=request.crew
             )
             
         except Exception as e:
-            print(f"[CREW_BUILDER] Crew execution failed for session_id {session_id}: {e}")
+            print(f"[CREW_BUILDER] Failed to queue job: {e}")
             raise e
     
     except ValueError as e:
@@ -146,4 +174,34 @@ async def get_result(session_id: str):
         raise HTTPException(
             status_code=500,
             detail=f"Error retrieving result: {str(e)}"
+        )
+
+@router.get("/api/job/{job_id}")
+async def get_job_status(job_id: str):
+    """
+    Get the status of a background job.
+    """
+    try:
+        from worker import worker_manager
+        status = worker_manager.get_job_status(job_id)
+        return {"job_id": job_id, "status": status}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error getting job status: {str(e)}"
+        )
+
+@router.get("/api/jobs")
+async def get_all_jobs():
+    """
+    Get all active jobs.
+    """
+    try:
+        from worker import get_all_jobs
+        jobs = get_all_jobs()
+        return {"jobs": jobs}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error getting jobs: {str(e)}"
         )

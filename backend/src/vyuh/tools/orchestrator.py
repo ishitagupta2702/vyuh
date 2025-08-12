@@ -1,9 +1,15 @@
 import uuid
 import os
+import sys
 from pathlib import Path
 from typing import List, Dict, Any
 from crewai import Agent, Task, Crew
 from langchain_community.chat_models import ChatLiteLLM
+
+# Add sandbox path to import sandbox tools
+project_root = Path(__file__).parent.parent.parent
+sandbox_path = project_root / "sandbox"
+sys.path.insert(0, str(sandbox_path))
 
 from .graph_utils import list_to_graph
 from .loaders import load_agents, load_tasks
@@ -65,6 +71,18 @@ def launch_crew_from_linear_list(crew: List[str], topic: str, session_id: str = 
             llm=ChatLiteLLM(model="gpt-3.5-turbo"),
             verbose=True
         )
+        
+        # Add sandbox tools based on agent type
+        try:
+            from crewai_tools import SandboxContextManager
+            
+            # Note: Sandbox tools will be managed by the crew execution context
+            # Tools are initialized when the crew runs, not when agents are created
+            print(f"[ORCHESTRATOR] Sandbox tools will be initialized for agent: {agent_id}")
+            
+        except Exception as e:
+            print(f"[ORCHESTRATOR] Warning: Could not add sandbox tools to {agent_id}: {e}")
+        
         print(f"[ORCHESTRATOR] Created agent: {agent_id}")
         
         # Find corresponding task
@@ -123,6 +141,180 @@ def launch_crew_from_linear_list(crew: List[str], topic: str, session_id: str = 
     except Exception as e:
         print(f"[ORCHESTRATOR] Session {session_id}: Crew execution failed - {str(e)}")
         raise e
+
+
+def launch_crew_with_sandbox(crew: List[str], topic: str, session_id: str = None) -> dict:
+    """
+    Launch a CrewAI workflow with Daytona sandbox tools properly managed.
+    
+    Args:
+        crew: List of agent IDs in execution order
+        topic: The topic for the crew to work on
+        session_id: Optional session ID
+        
+    Returns:
+        Dictionary containing session_id, result, and sandbox status
+    """
+    print(f"[ORCHESTRATOR] Starting sandbox-enabled crew launch: crew={crew}, topic={topic}")
+    
+    # Generate session ID if not provided
+    if session_id is None:
+        session_id = str(uuid.uuid4())
+    print(f"[ORCHESTRATOR] Using session_id: {session_id}")
+    
+    try:
+        from crewai_tools import SandboxContextManager
+        
+        # Create sandbox context manager
+        async def run_crew_with_sandbox():
+            async with SandboxContextManager() as sandbox_ctx:
+                # Get tools
+                tools = sandbox_ctx.get_tools()
+                
+                # Load agents and tasks
+                agents_config = load_agents()
+                tasks_config = load_tasks()
+                
+                # Create agents with sandbox tools
+                crew_agents = {}
+                for agent_id in crew:
+                    agent_config = agents_config[agent_id]
+                    
+                    # Create agent
+                    agent = Agent(
+                        role=agent_config.get("role", "").strip(),
+                        goal=agent_config.get("goal", "").strip(),
+                        backstory=agent_config.get("backstory", "").strip(),
+                        llm=ChatLiteLLM(model="gpt-3.5-turbo"),
+                        verbose=True
+                    )
+                    
+                    # Add appropriate tools based on agent role
+                    if "researcher" in agent_id.lower():
+                        agent.tools = [tools["file_tool"], tools["command_tool"]]
+                    elif "writer" in agent_id.lower():
+                        agent.tools = [tools["file_tool"], tools["pdf_tool"]]
+                    else:
+                        agent.tools = [tools["file_tool"]]
+                    
+                    crew_agents[agent_id] = agent
+                    print(f"[ORCHESTRATOR] Created agent {agent_id} with sandbox tools")
+                
+                # Create tasks
+                crew_tasks = []
+                for agent_id in crew:
+                    task_config = tasks_config.get(agent_id, {})
+                    task = Task(
+                        description=task_config.get("description", f"Execute {agent_id} task"),
+                        expected_output=task_config.get("expected_output", f"Results from {agent_id}"),
+                        agent=crew_agents[agent_id],
+                        context=[]
+                    )
+                    crew_tasks.append(task)
+                
+                # Create and execute crew
+                crew_instance = Crew(
+                    agents=list(crew_agents.values()),
+                    tasks=crew_tasks,
+                    verbose=True
+                )
+                
+                result = crew_instance.kickoff(inputs={"topic": topic})
+                
+                return {
+                    "success": True,
+                    "result": str(result),
+                    "sandbox_status": sandbox_ctx.get_sandbox_status()
+                }
+        
+        # Run the async function
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(run_crew_with_sandbox())
+        finally:
+            loop.close()
+        
+        print(f"[ORCHESTRATOR] Session {session_id}: Sandbox crew execution completed")
+        
+        return {
+            "session_id": session_id,
+            "topic": topic,
+            "success": True,
+            **result
+        }
+        
+    except Exception as e:
+        print(f"[ORCHESTRATOR] Session {session_id}: Sandbox crew execution failed - {str(e)}")
+        return {
+            "session_id": session_id,
+            "topic": topic,
+            "success": False,
+            "error": str(e),
+            "sandbox_status": "failed"
+        }
+
+
+def launch_crew_from_linear_list_with_queue(crew: List[str], topic: str, session_id: str = None, queue_job: bool = False) -> dict:
+    """
+    Launch a CrewAI workflow from a linear list of agent IDs with option to queue.
+    
+    Args:
+        crew: List of agent IDs in execution order
+        topic: The topic for the crew to work on
+        session_id: Optional session ID
+        queue_job: If True, queue the job instead of running synchronously
+        
+    Returns:
+        Dictionary containing session_id and result or job_id
+    """
+    if queue_job:
+        # Queue the job for background execution
+        try:
+            from worker import queue_crew_workflow
+            
+            # Create crew configuration
+            crew_config = {
+                "agents": [
+                    {
+                        "role": "researcher" if "researcher" in agent else "writer" if "writer" in agent else "agent",
+                        "goal": f"Process {topic}",
+                        "backstory": f"Specialized agent for {agent} operations",
+                        "verbose": True,
+                        "allow_delegation": False
+                    }
+                    for agent in crew
+                ],
+                "tasks": [
+                    {
+                        "description": f"Execute {agent} task for {topic}",
+                        "agent_index": i,
+                        "expected_output": f"Results from {agent}",
+                        "context": []
+                    }
+                    for i, agent in enumerate(crew)
+                ],
+                "verbose": True
+            }
+            
+            job_id = queue_crew_workflow(crew_config, topic)
+            
+            return {
+                "session_id": session_id,
+                "job_id": job_id,
+                "status": "queued",
+                "topic": topic,
+                "crew": crew
+            }
+            
+        except Exception as e:
+            print(f"[ORCHESTRATOR] Failed to queue job: {e}")
+            # Fall back to synchronous execution
+            pass
+    
+    # Fall back to synchronous execution
+    return launch_crew_from_linear_list(crew, topic, session_id)
 
 
 if __name__ == "__main__":
