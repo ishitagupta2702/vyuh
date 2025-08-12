@@ -72,9 +72,11 @@ class SandboxShellTool(SandboxBaseTool):
             await self.sandbox.process.create_session(session_id)
             
             # Execute the command
+            from daytona_sdk.common.process import SessionExecuteRequest
+            req = SessionExecuteRequest(command=command)
             result = await self.sandbox.process.execute_session_command(
                 session_id, 
-                command=command,
+                req=req,
                 timeout=60
             )
             
@@ -114,21 +116,23 @@ class SandboxShellTool(SandboxBaseTool):
             
             # Upload script content
             await self.sandbox.fs.upload_file(
-                path=script_path,
-                content=script_content.encode('utf-8')
+                script_content.encode('utf-8'), script_path
             )
             
             # Make script executable
+            from daytona_sdk.common.process import SessionExecuteRequest
+            chmod_req = SessionExecuteRequest(command=f"chmod +x {script_path}")
             await self.sandbox.process.execute_session_command(
                 "temp_session",
-                command=f"chmod +x {script_path}",
+                req=chmod_req,
                 timeout=30
             )
             
             # Execute the script
+            bash_req = SessionExecuteRequest(command=f"bash {script_path}")
             result = await self.sandbox.process.execute_session_command(
                 "temp_session",
-                command=f"bash {script_path}",
+                req=bash_req,
                 timeout=120
             )
             

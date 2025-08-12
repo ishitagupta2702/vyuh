@@ -69,11 +69,16 @@ class SandboxFilesTool(SandboxBaseTool):
             clean_path = self._clean_path(file_path)
             full_path = f"{self.workspace_path}/{clean_path}"
             
-            # Create the file using sandbox file system
-            await self.sandbox.fs.upload_file(
-                path=full_path,
-                content=file_contents.encode('utf-8')
-            )
+            # Try with relative path first (Daytona might expect this)
+            try:
+                await self.sandbox.fs.upload_file(
+                    file_contents.encode('utf-8'), clean_path  # Use relative path
+                )
+            except Exception as e:
+                # Fallback to absolute path
+                await self.sandbox.fs.upload_file(
+                    file_contents.encode('utf-8'), full_path  # Use absolute path
+                )
             
             return self.success_response(f"File '{clean_path}' created successfully")
             
@@ -130,8 +135,7 @@ class SandboxFilesTool(SandboxBaseTool):
             
             # Update the file content
             await self.sandbox.fs.upload_file(
-                path=full_path,
-                content=new_content.encode('utf-8')
+                new_content.encode('utf-8'), full_path
             )
             
             return self.success_response(f"File '{clean_path}' updated successfully")
